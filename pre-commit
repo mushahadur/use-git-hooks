@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# List all staged Python files
+files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$')
+
+# If no python files are staged, exit early
+if [ -z "$files" ]; then
+    exit 0
+fi
+
+# Run Black for formatting
+echo "Running Black for formatting..."
+python3 -m black $files
+
+# Run Flake8 for potential errors, bugs, stylistic issues, and suspicious constructs without actually running the code.
+echo "Running Flake8 for linting........"
+python3 -m flake8 $files
+ z
+# Define patterns to search for secrets
+patterns=(
+  "aws_secret_access_key"
+  "aws_access_key_id"
+  "password"
+  "secret"
+  "token"
+  "api_key"
+  "client_secret"
+)
+
+# Function to search for patterns in a file
+check_file_for_secrets() {
+  local file="$1"
+  for pattern in "${patterns[@]}"; do
+    if grep -i "$pattern" "$file" > /dev/null; then
+      echo "Potential security issue detected in file: $file"
+      echo "Pattern matched: $pattern"
+      echo "Commit aborted. Remove secrets before committing."
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Check each staged Python file for secrets
+for file in $files; do
+  if ! check_file_for_secrets "$file"; then
+    exit 1
+  fi
+done
+
+# If all checks pass
+echo "No secrets detected. Proceeding with commit."
+exit 0
